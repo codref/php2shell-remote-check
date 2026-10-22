@@ -92,6 +92,44 @@ Use any URL the server executes as PHP (the homepage is fine).
 Options: `--timeout`, `--user-agent`, `--header K:V`, `--cookie`,
 `--insecure`, `--proxy`, `--json`, `--quiet`, `--no-probe`.
 
+### Which endpoint to point it at (and what it needs)
+
+**Point it at any URL the server executes as PHP that accepts a `POST`.** The
+homepage or `/index.php` is usually fine; a form action, a login page, an upload
+route or an API endpoint is even better because it definitely accepts `POST`
+(some homepages answer `405` to `POST`, which makes the probe inconclusive).
+
+You do **not** need a special endpoint, and the app does not have to use sessions
+or expose any feature: the bug lives in the PHP core and is triggered while PHP
+parses the request, *before* the application runs. That also means no login is
+needed — the handler runs before routing and authentication, so an
+auth-protected URL works just as well for the probe.
+
+Prerequisites / conditions for a meaningful result:
+
+- **It must run PHP.** A static file (`.html`, `.css`, an image) never shows the
+  version and never runs the handler. Use a `.php` script, or a path the server
+  rewrites to PHP.
+- **It should accept `POST`.** If the endpoint replies `405/415` to `POST`, try
+  another one; the multipart probe needs to reach the parser.
+- **The PHP version should be visible.** If `expose_php` is off or a proxy strips
+  `X-Powered-By`, the version check returns `UNKNOWN` (the reachability probe
+  still runs). Run against the origin directly — behind a CDN the version header
+  is often rewritten or hidden.
+- **Traffic must reach PHP, not stop at the edge.** Blocking WAF/proxy rules
+  produce `EDGE-MITIGATED`; that is about the edge, not the origin. If there is a
+  CDN in front, test the origin host directly.
+- **`session.upload_progress.enabled = On`** (PHP default) and multipart not
+  filtered. Disabling the directive removes the attack surface.
+
+For the state-corruption check specifically, the target must also let the
+handler reach `memory_limit` (a low limit, or a large enough request) and have a
+**writable session save path** (`session.save_path`); otherwise the session never
+starts and the OOM window is not reached.
+
+If unsure, run the check against a handful of endpoints and trust the one with
+the clearest signal (disclosed version + `POST` accepted + no edge block).
+
 ---
 
 ## The state-corruption check
