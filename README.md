@@ -174,5 +174,4 @@ systems.
 
 ## License
 
-[MIT](LICENSE). Replace the copyright holder line in `LICENSE` with your name or
-organization before publishing.
+[MIT](LICENSE).
